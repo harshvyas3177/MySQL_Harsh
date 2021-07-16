@@ -1,0 +1,217 @@
+######################################################
+    Joins, Column Manipulation, Summaries    
+
+
+-- create a new database to hold a gift list to help with shopping for an occassion
+CREATE DATABASE if not exists mygifts;
+USE mygifts;
+
+-- first a table to hold your possible recipients
+CREATE TABLE recipients (
+    recip_id INT NOT NULL AUTO_INCREMENT,
+    recip_name VARCHAR(20) NOT NULL,
+    relationship_cat VARCHAR(30),
+    PRIMARY KEY (recip_id)
+);
+
+-- enter 10 records (relationship categories 'family', 'friend', 'work')
+INSERT INTO recipients (recip_id, recip_name, relationship_cat)
+VALUES
+(1, "Louisa",  "Family"),
+(2, "Eli", "Family"),
+(3, "Deborah",  "Friend"),
+(4, "Judith", "Family"),
+(5, "Rupert",  "Friend"),
+(6, "Kyle",  "Work"),
+(7, "Jarrett", "Work"),
+(8, "Will",   "Friend"),
+(9, "Lily",   "Family"),
+(10, "Stan",  "Work");
+
+
+-- create table to hold the gifts for people on your recipient list
+-- Note: Boolean data type is synonomous with TINYINT(1) 
+-- 0 = false, 1 = true; false and true are aliases
+
+CREATE TABLE gifts ( 
+    gift_id INT NOT NULL AUTO_INCREMENT,
+    gift_description VARCHAR(30) NOT NULL,
+    quantity TINYINT,
+    price NUMERIC(5,2),
+    purch_online BOOLEAN,
+    recipient_id INT,
+    PRIMARY KEY (gift_id)
+);
+
+-- insert data into this table
+INSERT INTO gifts (gift_id, gift_description, quantity, price, purch_online, recipient_id)
+VALUES
+(1, "Cheese Pack", 1, 25.43, false, 8),
+(2, "Atwood Book", 1, 15.99, true, 1),
+(3, "Sweater", 1, 24.99, false, 2),
+(4, "Magazine subscription", 1, 20.00, true, 4),
+(5, "Mittens", 1, 15.50, false, 7),
+(6, "Toy cars", 2, 14.50, true, 3),
+(7,  "Phone case", 1, 30.00, true, 9),
+(8, "Puzzle", 1, 17.99, false, 4),
+(9, "Bowls", 4, 11.99, false, 7),
+(10, "Paint Set", 1, 20.00, true, 4),
+(11, "Mugs", 4, 10.50, false, 2),
+(12, "Blender", 1, 199.99, false, 2),
+(13, "Hip CD", 1, 19.99, true, 5),
+(14, "Tim Horton GC", 1, 25.00, false, 10),
+(15, "Irving Book", 1, 32.00, true, 3),
+(16, "Dinner GC", 1, 40.00, true, 7),
+(17, "Candle Set", 1, 30.00, false, 8),
+(18, "Mobile", 1, 24.99, true, 3),
+(19, "Coat", 1, 120.00, false, 2),
+(20, "Hat", 1, 25.00, false, 2);
+
+-- Q1. Examine the contents of each table separately
+SELECT * FROM gifts;
+SELECT * FROM recipients;
+
+-- Q2. Select all gifts that are gift cards (contain 'GC')
+-- a) Using LIKE
+SELECT *
+FROM gifts
+WHERE gift_description LIKE ('%GC%');
+
+-- b) USING REGEXP (see page 100)
+SELECT *
+FROM gifts
+WHERE gift_description REGEXP ('GC');
+
+
+-- Q3. Create a calculated field displaying the total_spent (quanity x price)
+-- (See Arithmetic Expressions, page 82)
+SELECT gift_id, gift_description, quantity, price, quantity * price AS total_spent 
+FROM gifts;
+
+
+-- Q4. List all recipients and their gifts;
+SELECT recipients.recip_name, gifts.gift_description 
+FROM recipients
+JOIN gifts ON recipients.recip_id = gifts.recipient_id
+ORDER BY recipients.recip_id;
+
+-- Q5. Re-write the above query using table aliases of r and g 
+SELECT r.recip_name, g.gift_description 
+FROM recipients r
+JOIN gifts g ON r.recip_id = g.recipient_id
+ORDER BY r.recip_id;
+
+-- Q6. Write a query to count the number of gifts per recipient
+-- if you consider each gift entry as 1 gift regardless of quantity given
+SELECT recipients.recip_name, count(*) AS Num_Gifts
+FROM recipients
+JOIN gifts ON recipients.recip_id = gifts.recipient_id
+GROUP BY recipients.recip_name;
+
+-- Q7. Re-write the above with aliases
+SELECT r.recip_name, count(g.gift_description) AS Num_Gifts
+FROM recipients r
+JOIN gifts g ON r.recip_id = g.recipient_id
+GROUP BY r.recip_name;
+
+-- Q8. Write a query to count the number of gift entries per recipient
+-- if you consider the quantity field as being separate gifts
+SELECT r.recip_name, sum(g.quantity) AS Num_Gifts
+FROM recipients r
+JOIN gifts g ON r.recip_id = g.recipient_id
+GROUP BY r.recip_name;
+
+
+
+-- Q9. Calculate the total amount spent per person using table aliases
+SELECT r.recip_name, sum(g.price) AS Tot_Spent
+FROM recipients r
+JOIN gifts g ON r.recip_id = g.recipient_id
+GROUP BY r.recip_name;
+
+-- Q10. Calculate the average gift value per category of relationship
+-- Round the average values to the nearest 1 decimal point
+-- See Numeric Functions on page 267
+SELECT r.relationship_cat, round(avg(g.price),1) AS Avg_Spent
+FROM recipients r
+JOIN gifts g ON r.recip_id = g.recipient_id
+GROUP BY r.relationship_cat;
+
+-- Q11. Run the same query as above, but limit the results to categories with 
+-- average gift value of $30 or more
+SELECT r.relationship_cat, round(avg(g.price),1) AS Avg_Spent
+FROM recipients r
+JOIN gifts g ON r.recip_id = g.recipient_id
+GROUP BY r.relationship_cat
+HAVING Avg_Spent > 30;
+
+
+-- Q12. Combine the count and amount spent into one query. Order by total spent from high to low
+SELECT r.recip_name, count(g.gift_description) AS Num_Gifts, sum(g.price) AS Tot_Spent
+FROM recipients r
+JOIN gifts g ON r.recip_id = g.recipient_id
+GROUP BY r.recip_name
+ORDER BY Tot_Spent DESC;
+
+
+-- Q13. Use a left outer join to include anyone on the list 
+-- even if you didn't buy them a gift
+SELECT recipients.recip_id, recipients.recip_name, gifts.gift_description 
+FROM recipients
+LEFT JOIN gifts ON recipients.recip_id = gifts.recipient_id;
+
+-- Q14. Denote anyone on the list who you missed with 'NO GIFT PURCHASED'
+SELECT r.recip_id, r.recip_name, ifnull(g.gift_description, 'NO GIFT PURCHASED') AS gift_description
+FROM recipients r
+LEFT JOIN gifts g ON r.recip_id = g.recipient_id;
+
+
+-- Q15. Create a new column concatenating the name of the recipient and their category
+-- See String Funtions on page 259
+SELECT recip_name, relationship_cat, concat(recip_name, relationship_cat) AS recip_new
+FROM recipients;
+
+-- Q16. Redo the above query but add a " - " between the two fields to make it more readable
+SELECT recip_name, relationship_cat, concat(recip_name, ' - ', relationship_cat) AS recip_new
+FROM recipients;
+-- Another way
+SELECT recip_name, relationship_cat, concat_ws(' - ', recip_name, relationship_cat) AS recip_new
+FROM recipients;
+
+
+-- Q17. List the first initial of every recipient's name
+SELECT recip_name, left(recip_name, 1) AS recip_init
+FROM recipients;
+
+-- Q18. Return the length of each recipient's name
+SELECT recip_name, length(recip_name) AS length_name
+FROM recipients;
+ 
+-- Q19. What total number of purchases were made online?
+SELECT purch_online, count(purch_online)
+From gifts
+Group By purch_online;
+
+-- Q20. Display true and false instead of 0 and 1
+SELECT if(purch_online=0, 'false', 'true') purch_online, count(purch_online)
+From gifts
+Group By purch_online;
+
+
+-- VIEWS
+-- Are temporary tables - used to simplify (remove fields not needed) 
+-- or a permanent join to query as a single table for convenience
+
+-- Here is an example, creating a view called 'list_2019'
+CREATE VIEW list_2019 AS
+SELECT r.relationship_cat, r.recip_name, g.gift_description
+FROM recipients r
+JOIN gifts g ON r.recip_id = g.recipient_id
+ORDER BY r.relationship_cat, r.recip_name, g.gift_description;
+
+-- Selecting from this view works the same as a single table select
+SELECT *
+FROM list_2019;
+
+-- To drop a view
+Drop view list_2019;
